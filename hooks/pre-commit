@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+if command -v agent-file-checker >/dev/null 2>&1; then
+  exec agent-file-checker verify-changed
+fi
+
+# Prefer local install via npx when the package is a dependency or linked
+if command -v npx >/dev/null 2>&1; then
+  if npx --no-install agent-file-checker verify-changed 2>/dev/null; then
+    exit 0
+  fi
+fi
+
+# Fallback: run from AGENT_FILE_CHECKER_ROOT if set (clone path)
+if [[ -n "${AGENT_FILE_CHECKER_ROOT:-}" && -x "${AGENT_FILE_CHECKER_ROOT}/bin/agent-file-checker.js" ]]; then
+  exec node "${AGENT_FILE_CHECKER_ROOT}/bin/agent-file-checker.js" verify-changed
+fi
+
+# Fallback: sibling path commonly used in local Clause_dev layouts
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# If this hook was copied into a consumer repo, look for a linked package
+if [[ -x "node_modules/agent-file-checker/bin/agent-file-checker.js" ]]; then
+  exec node "node_modules/agent-file-checker/bin/agent-file-checker.js" verify-changed
+fi
+
+echo "agent-file-checker: pre-commit could not find CLI." >&2
+echo "  Install with: npm install -D /path/to/agent_file_checker" >&2
+echo "  Or set AGENT_FILE_CHECKER_ROOT to the clone path." >&2
+exit 1
