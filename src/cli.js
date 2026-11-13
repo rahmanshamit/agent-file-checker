@@ -11,7 +11,10 @@ function printUsage() {
   agent-file-checker write  <path> --expect <str> [--expect <str>...]
       (file contents on stdin)
   agent-file-checker verify-changed [--root <dir>]
-  agent-file-checker setup-hooks
+  agent-file-checker setup-hooks [--git] [--cursor] [--claude-code] [--all]
+
+  setup-hooks defaults to --git when no target flags are passed.
+  --all installs git + Cursor + Claude Code auto-triggers.
 
 Exit 0 on success, non-zero on failure.
 `);
@@ -20,6 +23,7 @@ Exit 0 on success, non-zero on failure.
 function parseArgs(argv) {
   const positional = [];
   const expects = [];
+  const setupTargets = [];
   let requireDiff = false;
   let root = ".";
 
@@ -51,8 +55,35 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === "--git") {
+      setupTargets.push("git");
+      continue;
+    }
+
+    if (arg === "--cursor") {
+      setupTargets.push("cursor");
+      continue;
+    }
+
+    if (arg === "--claude-code") {
+      setupTargets.push("claude-code");
+      continue;
+    }
+
+    if (arg === "--all") {
+      setupTargets.push("all");
+      continue;
+    }
+
     if (arg === "--help" || arg === "-h") {
-      return { command: "help", positional, expects, requireDiff, root };
+      return {
+        command: "help",
+        positional,
+        expects,
+        requireDiff,
+        root,
+        setupTargets,
+      };
     }
 
     if (arg.startsWith("-")) {
@@ -69,6 +100,7 @@ function parseArgs(argv) {
     expects,
     requireDiff,
     root,
+    setupTargets,
   };
 }
 
@@ -83,7 +115,8 @@ async function runCli(argv) {
     return 1;
   }
 
-  const { command, positional, expects, requireDiff, root } = parsed;
+  const { command, positional, expects, requireDiff, root, setupTargets } =
+    parsed;
 
   if (command === "help") {
     printUsage();
@@ -142,6 +175,7 @@ async function runCli(argv) {
   if (command === "setup-hooks") {
     return setupHooks({
       cwd: process.cwd(),
+      targets: setupTargets,
     });
   }
 
